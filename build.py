@@ -322,14 +322,44 @@ class Gen_compressed(threading.Thread):
         if pair[0][2:] not in filter_keys:
           dash_args.extend(pair)
 
+#       # Build the final args array by prepending CLOSURE_COMPILER_NPM to
+#       # dash_args and dropping any falsy members
+#       args = []
+#       for group in [[CLOSURE_COMPILER_NPM], dash_args]:
+#         args.extend(filter(lambda item: item, group))
+#
+#       proc = subprocess.Popen(args, stdin=subprocess.PIPE, stdout=subprocess.PIPE)
+#       (stdout, stderr) = proc.communicate()
+
+  	  # TODO: ERROR : execute command according to os
       # Build the final args array by prepending CLOSURE_COMPILER_NPM to
       # dash_args and dropping any falsy members
-      args = []
-      for group in [[CLOSURE_COMPILER_NPM], dash_args]:
-        args.extend(filter(lambda item: item, group))
+      # Use a flagfile into the closure compiler.To fix the compilation problems due to commands exceeding 8191 characters in Windows Environment.
+      if os.name == "nt":
+        tmp_data = " ".join(dash_args)
+        tmp_data_list = list(tmp_data)
+        n_pos = [i for i, x in enumerate(tmp_data_list) if x == "\\"]
+        for x in range(len(n_pos)):
+          tmp_data_list.insert(n_pos[len(n_pos) - x - 1], "\\")
+        tmp_data = "".join(tmp_data_list)
 
-      proc = subprocess.Popen(args, stdin=subprocess.PIPE, stdout=subprocess.PIPE)
+        f_name = target_filename + ".config"
+        temp_f = open(f_name, "w")
+        temp_f.write(tmp_data)
+        temp_f.close()
+
+        args = [closure_compiler, "--flagfile", f_name]
+
+        proc = subprocess.Popen(args, stdin=subprocess.PIPE, stdout=subprocess.PIPE, shell=True)
+      else:
+        args = []
+        for group in [[CLOSURE_COMPILER_NPM], dash_args]:
+          args.extend(filter(lambda item: item, group))
+
+          proc = subprocess.Popen(args, stdin=subprocess.PIPE, stdout=subprocess.PIPE)
+
       (stdout, stderr) = proc.communicate()
+
 
       # Build the JSON response.
       filesizes = [os.path.getsize(value) for (arg, value) in params if arg == "js_file"]
